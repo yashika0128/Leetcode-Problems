@@ -1,48 +1,45 @@
-class MyQueue {
-    private Stack<Integer> s1 = new Stack<>();
-    private Stack<Integer> s2 = new Stack<>();
-
-    /** Initialize your data structure here. */
-    public MyQueue() {
-        
-    }
-    
-    /** Push element x to the back of queue. */
-    public void push(int x) {
-        s1.push(x);
-    }
-    
-    /** Removes the element from in front of queue and returns that element. */
-    public int pop() {
-        if (s2.isEmpty()) {
-            while (!s1.isEmpty())
-                s2.push(s1.pop());
-        }
-        return s2.pop();
-    }
-    
-    /** Get the front element. */
-    public int peek() {
-        if (!s2.isEmpty()) {
-            return s2.peek();
-        } else {
-            while (!s1.isEmpty())
-                s2.push(s1.pop());
-        }
-        return s2.peek();
-    }
-    
-    /** Returns whether the queue is empty. */
-    public boolean empty() {
-        return s1.isEmpty() && s2.isEmpty();
-    }
-}
-
-/**
- * Your MyQueue object will be instantiated and called as such:
- * MyQueue obj = new MyQueue();
- * obj.push(x);
- * int param_2 = obj.pop();
- * int param_3 = obj.peek();
- * boolean param_4 = obj.empty();
- */
+1class MyQueue {
+2
+3    Stack <Integer> in;
+4    Stack <Integer> out;
+5    public MyQueue() {
+6        in = new Stack<>();
+7        out = new Stack<>();
+8    }
+9    
+10    public void push(int x) {
+11        in.push(x);
+12
+13    }
+14    
+15    public int pop() {
+16        shiftStack();
+17        return out.pop();
+18    }
+19    
+20    public int peek() {
+21        shiftStack();
+22        return out.peek();
+23    }
+24    
+25    public boolean empty() {
+26        return in.isEmpty() && out.isEmpty();
+27    }
+28
+29    private void shiftStack(){
+30        if(out.isEmpty()){
+31            while(!in.isEmpty()){
+32                out.push(in.pop());
+33            }
+34        }
+35    }
+36}
+37
+38/**
+39 * Your MyQueue object will be instantiated and called as such:
+40 * MyQueue obj = new MyQueue();
+41 * obj.push(x);
+42 * int param_2 = obj.pop();
+43 * int param_3 = obj.peek();
+44 * boolean param_4 = obj.empty();
+45 */
