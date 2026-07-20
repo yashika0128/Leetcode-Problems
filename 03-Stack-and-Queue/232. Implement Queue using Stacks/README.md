@@ -53,153 +53,150 @@ myQueue.empty(); // return false
 
 # 🛍️ Implement-Queue-using-Stacks | Explained
 
-## Approach 1: Amortized O(1) Operations (Two Stacks - Lazy Transfer)
+## Approach 1: Lazy-Shifting Two-Stack Implementation (Amortized $O(1)$)
 
 ### Intuition
-A queue operates on a **FIFO (First-In, First-Out)** basis, whereas a stack operates on a **LIFO (Last-In, First-Out)** basis. To reverse the LIFO order of a stack to match the FIFO behavior of a queue, we can use two stacks.
+A stack is a Last-In, First-Out (LIFO) data structure, whereas a queue is a First-In, First-Out (FIFO) data structure. If we push elements onto a stack and then pop them off into another stack, the order of the elements is completely reversed. 
 
-Imagine a warehouse logistics process:
-1. **The Inbound Stack (`s1`):** All incoming inventory is stacked here as it arrives. The newest items sit on top.
-2. **The Outbound Stack (`s2`):** When customers request the oldest item (FIFO), we cannot access it directly from the bottom of `s1`. Instead, we flip the entire inbound stack upside down into the outbound stack. The oldest item, which was at the very bottom of `s1`, is now at the very top of `s2`, ready to be shipped out immediately.
+Think of this like two vertical tubes of Pringles chips:
+1. **The `in` Stack (Tube A)**: You drop chips in from the top. The first chip dropped sits at the very bottom.
+2. **The `out` Stack (Tube B)**: When you need to eat a chip (the one at the bottom of Tube A), you pour all the chips from Tube A into Tube B. Now, the chip that was at the bottom of Tube A is sitting at the very top of Tube B, ready to be eaten.
 
-We only perform this transfer of elements when `s2` is completely empty. This "lazy evaluation" ensures we do not waste CPU cycles repeatedly shifting elements back and forth.
+By lazily shifting elements from the `in` stack to the `out` stack *only* when the `out` stack is empty, we minimize unnecessary element movement, yielding an amortized runtime of $O(1)$ for retrieval operations.
 
 ### Algorithm Visualized
 
-Here is how the stacks behave during a sequence of `push(1)`, `push(2)`, `pop()`, `push(3)`, and `pop()` operations:
-
 ```mermaid
-graph TD
-    subgraph State 1: After Push 1 and Push 2
-        s1_1["s1: [1, 2] (Top is 2)"] 
-        s2_1["s2: [] (Empty)"]
+flowchart TD
+    classDef operational fill:#e1f5fe,stroke:#0288d1,stroke-width:2px;
+    classDef decision fill:#fff9c4,stroke:#fbc02d,stroke-width:2px;
+    
+    subgraph Push [Push Operation]
+        A([Start: push x]) --> B[Push x onto 'in' Stack]:::operational
+        B --> C([End])
     end
 
-    subgraph State 2: Pop requested (Trigger Transfer s1 -> s2)
-        s1_2["s1: []"]
-        s2_2["s2: [2, 1] (Top is 1)"]
-        pop_1["Pop returns: 1"]
+    subgraph PopPeek [Pop / Peek Operation]
+        D([Start: pop/peek]) --> E{Is 'out' Stack empty?}:::decision
+        E -- Yes --> F{Is 'in' Stack empty?}:::decision
+        F -- No --> G[Pop element from 'in']:::operational
+        G --> H[Push element to 'out']:::operational
+        H --> F
+        F -- Yes --> I[Perform Pop/Peek on 'out' Stack]:::operational
+        E -- No --> I
+        I --> J([End])
     end
-
-    subgraph State 3: After Push 3
-        s1_3["s1: [3]"]
-        s2_3["s2: [2] (Top is 2)"]
-    end
-
-    subgraph State 4: Pop requested (s2 is not empty, no transfer)
-        s1_4["s1: [3]"]
-        s2_4["s2: []"]
-        pop_2["Pop returns: 2"]
-    end
-
-    State 1 -->|pop() triggers transfer| State 2
-    State 2 -->|push(3)| State 3
-    State 3 -->|pop() uses s2 directly| State 4
 ```
 
 ### Approach
-1. **`push(x)`:** Always push elements directly onto the input stack `s1`. This is an $O(1)$ operation.
-2. **`pop()`:** Check if the output stack `s2` is empty. 
-   - If `s2` is empty, pop all elements from `s1` and push them onto `s2` one by one. This reverses their order.
-   - Pop and return the top element of `s2`.
-3. **`peek()`:** Similar to `pop()`, but instead of removing the element, return the top of `s2`. If `s2` is empty, perform the transfer from `s1` first.
-4. **`empty()`:** The queue is empty only if both `s1` and `s2` have no elements remaining.
+1. **Two Stacks Design**: 
+   - `in`: Dedicated exclusively to buffering newly pushed elements.
+   - `out`: Dedicated exclusively to serving `pop` and `peek` requests.
+2. **Push Logic**: 
+   - Always push the element directly onto the `in` stack. This operation is trivially $O(1)$.
+3. **Pop/Peek (Retrieve) Logic**:
+   - Before popping or peeking, verify if the `out` stack is empty.
+   - If `out` is empty, sequentially transfer all elements from `in` to `out`. This reverses their order, positioning the oldest element at the top of the `out` stack.
+   - If `out` is not empty, bypass the transfer. The top of `out` is already the oldest active element in the queue.
+   - Retrieve/remove the top element of the `out` stack.
+4. **Empty Check Logic**:
+   - The entire queue is empty if and only if **both** the `in` and `out` stacks are empty.
 
 ### Detailed Code Analysis
 
-Let's break down the mechanics of the provided Java implementation:
-
-* **Member Variables:**
+* **Lines 3-4**: 
   ```java
-  private Stack<Integer> s1 = new Stack<>();
-  private Stack<Integer> s2 = new Stack<>();
+  Stack <Integer> in;
+  Stack <Integer> out;
   ```
-  Two instances of `java.util.Stack` are instantiated. 
-  *(Senior Engineer's Note: In modern Java production code, `Deque<Integer> stack = new ArrayDeque<>()` is preferred over `java.util.Stack` because `Stack` is thread-safe via synchronization, which adds unnecessary overhead in single-threaded contexts).*
+  Two instances of `java.util.Stack` are declared. Note that in professional Java development, `java.util.Stack` is a legacy class extending `java.util.Vector`, which uses synchronization locks on all operations. For a single-threaded queue simulation, standard modern practice would use `Deque<Integer> in = new ArrayDeque<>();` for optimal performance.
 
-* **`push(int x)` Method:**
+* **Lines 5-8**: 
+  ```java
+  public MyQueue() {
+      in = new Stack<>();
+      out = new Stack<>();
+  }
+  ```
+  The constructor instantiates the concrete stacks on the heap.
+
+* **Lines 10-13**: 
   ```java
   public void push(int x) {
-      s1.push(x);
+      in.push(x);
   }
   ```
-  New elements are blindly accepted into the input stack `s1`. 
+  New items are pushed onto the `in` stack in $O(1)$ time. No element transfers occur here (this is the "lazy" aspect).
 
-* **`pop()` Method:**
+* **Lines 15-18 & 20-23**: 
   ```java
   public int pop() {
-      if (s2.isEmpty()) {
-          while (!s1.isEmpty())
-              s2.push(s1.pop());
-      }
-      return s2.pop();
+      shiftStack();
+      return out.pop();
   }
-  ```
-  Here, we lazily populate `s2`. If `s2` still contains elements from a previous transfer, we bypass the `while` loop entirely and pop from `s2` in $O(1)$ time. If `s2` is empty, we transfer everything from `s1` to `s2` using a loop, resetting the order.
-
-* **`peek()` Method:**
-  ```java
+  
   public int peek() {
-      if (!s2.isEmpty()) {
-          return s2.peek();
-      } else {
-          while (!s1.isEmpty())
-              s2.push(s1.pop());
-      }
-      return s2.peek();
+      shiftStack();
+      return out.peek();
   }
   ```
-  This follows the same transfer pattern as `pop()`, but leaves the target element on the top of `s2` via `peek()`.
-  *(Senior Engineer's Code Smell Hint: There is duplicated logic between `pop()` and `peek()`. In a production setting, `pop()` should call `peek()` to fetch the value, and then perform `s2.pop()` to remove it, keeping code DRY).*
+  Both retrieval methods delegate to the private helper `shiftStack()` to ensure the FIFO invariant is satisfied before attempting to access the `out` stack. Once corrected, they access the element on the top of `out`.
 
-* **`empty()` Method:**
+* **Lines 25-27**: 
   ```java
   public boolean empty() {
-      return s1.isEmpty() && s2.isEmpty();
+      return in.isEmpty() && out.isEmpty();
   }
   ```
-  Since queue elements can reside in either the input or output buffers, the queue is only empty when both underlying stacks are empty.
+  Since queue elements can be split across both stacks during execution, the queue is only empty when both internal stacks are empty.
+
+* **Lines 29-35**: 
+  ```java
+  private void shiftStack(){
+      if(out.isEmpty()){
+          while(!in.isEmpty()){
+              out.push(in.pop());
+          }
+      }
+  }
+  ```
+  This is the helper function managing the transfer. The outer conditional guard (`if(out.isEmpty())`) is critical. If we shifted elements from `in` to `out` while `out` still contained elements, the newer elements would be placed *above* the older elements in `out`, breaking the FIFO queue ordering.
 
 ### Code
-
 ```java
 class MyQueue {
-    private Stack<Integer> s1 = new Stack<>();
-    private Stack<Integer> s2 = new Stack<>();
 
-    /** Initialize your data structure here. */
+    Stack <Integer> in;
+    Stack <Integer> out;
     public MyQueue() {
-        
+        in = new Stack<>();
+        out = new Stack<>();
     }
     
-    /** Push element x to the back of queue. */
     public void push(int x) {
-        s1.push(x);
+        in.push(x);
     }
     
-    /** Removes the element from in front of queue and returns that element. */
     public int pop() {
-        if (s2.isEmpty()) {
-            while (!s1.isEmpty())
-                s2.push(s1.pop());
-        }
-        return s2.pop();
+        shiftStack();
+        return out.pop();
     }
     
-    /** Get the front element. */
     public int peek() {
-        if (!s2.isEmpty()) {
-            return s2.peek();
-        } else {
-            while (!s1.isEmpty())
-                s2.push(s1.pop());
-        }
-        return s2.peek();
+        shiftStack();
+        return out.peek();
     }
     
-    /** Returns whether the queue is empty. */
     public boolean empty() {
-        return s1.isEmpty() && s2.isEmpty();
+        return in.isEmpty() && out.isEmpty();
+    }
+
+    private void shiftStack(){
+        if(out.isEmpty()){
+            while(!in.isEmpty()){
+                out.push(in.pop());
+            }
+        }
     }
 }
 ```
@@ -207,24 +204,56 @@ class MyQueue {
 ### Complexity
 
 - **Time Complexity:**
-  - **`push(x)`**: $O(1)$. We perform a single stack push.
-  - **`pop()` / `peek()`**: **Amortized $O(1)$**, Worst-case $O(N)$.
-    - *Amortized Proof*: Each element in the queue is pushed to `s1` exactly once, popped from `s1` exactly once, pushed to `s2` exactly once, and popped from `s2` exactly once. For any sequence of $N$ operations, the total work spent on transfers is $2N$ operations. Thus, the average time spent per operation is $O(1)$.
-  - **`empty()`**: $O(1)$.
-
+  - `push(x)`: $O(1)$. Pushing onto a stack is a constant-time operation.
+  - `pop()` / `peek()`: **Amortized $O(1)$** (Worst-case $O(N)$). 
+    * *Why is it amortized $O(1)$?* Each element is pushed to the `in` stack exactly once, popped from `in` exactly once, pushed to `out` exactly once, and popped from `out` exactly once. For $N$ insertions and deletions, the total number of operations performed across both stacks is $4N$, yielding an average of $4$ operations per element, which resolves to $O(1)$ amortized time.
+  - `empty()`: $O(1)$. Direct checks on stack sizes.
 - **Space Complexity:**
-  - **$O(N)$** auxiliary space, where $N$ is the number of elements in the queue. The elements are distributed across the two stacks `s1` and `s2`.
+  - $O(N)$ auxiliary space, where $N$ is the number of elements active in the queue, since we store all items inside the two stacks.
 
 ---
 
 ## 🕵️‍♂️ Follow-up Questions
 
-### 1. Why is the amortized time complexity $O(1)$ for `pop` and `peek`, even though there is a nested loop inside them?
-In the worst-case scenario, `s2` is empty and `s1` contains $N$ elements. In this specific call, transferring elements takes $O(N)$ time. However, this expensive operation is rare. Once the transfer completes, the next $N-1$ `pop()` or `peek()` operations will execute in strict $O(1)$ time because they retrieve elements directly from `s2`. 
+### 1. Why is standard modern practice to avoid `java.util.Stack` in production environments?
+**Answer:** 
+`java.util.Stack` is a legacy class that extends `java.util.Vector`. Because `Vector` is retrofitted with synchronized methods to make it thread-safe, every call to `.push()` or `.pop()` incurs synchronization overhead (acquiring and releasing reentrant monitor locks). 
 
-If we sum the total number of operations (pushes to `s1`, transfers to `s2`, pops from `s2`) for any sequence of operations, each element is touched a constant number of times (at most 4 operations). Therefore, dividing the total cost by the number of actions yields an average (amortized) cost of $O(1)$ per operation.
+In a modern, single-threaded context, `java.util.ArrayDeque` is the industry-standard recommendation for implementing stack behavior. It performs significantly faster because it is unsynchronized and uses a contiguous resizable array under the hood.
 
-### 2. How can we make this class thread-safe?
-To make this queue safe for concurrent access (multi-threading):
-1. **Synchronized Blocks:** Wrap the internal logic of `push`, `pop`, `peek`, and `empty` in synchronized blocks, lock on a private monitor object, or use Java's legacy `Stack` built-in synchronization (though not recommended due to coarse-grained locking).
-2. **Read-Write Locks:** Use a `ReentrantReadWriteLock`. Multiple threads can call `empty()` or `peek()` concurrently (if `s2` is not empty), while write operations like `push()` and `pop()` lock the structure exclusively.
+### 2. How would you modify this queue to make it thread-safe for highly concurrent environments?
+**Answer:**
+To make this implementation thread-safe, we must lock the entire read/write state. Simply using thread-safe stacks is not enough because the helper method `shiftStack()` is non-atomic; multiple threads could concurrently see `out.isEmpty()` as true and try to shift elements, causing data races.
+
+We can achieve thread-safety using a `ReentrantReadWriteLock` or standard synchronized blocks:
+
+```java
+import java.util.concurrent.locks.ReentrantLock;
+
+class MyConcurrentQueue {
+    private final Deque<Integer> in = new ArrayDeque<>();
+    private final Deque<Integer> out = new ArrayDeque<>();
+    private final ReentrantLock lock = new ReentrantLock();
+
+    public void push(int x) {
+        lock.lock();
+        try {
+            in.push(x);
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    public int pop() {
+        lock.lock();
+        try {
+            shiftStack();
+            return out.pop();
+        } finally {
+            lock.unlock();
+        }
+    }
+    
+    // Similarly lock peek() and empty()
+}
+```
